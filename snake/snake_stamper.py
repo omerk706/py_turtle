@@ -1,6 +1,8 @@
+import logging
 import random
 import turtle
 from graphic.turtle_screen import ScreenManager, ScreenConfig
+from util.logger import game_logging
 
 INITIAL_DELAY = 300
 DELAY = 300
@@ -16,6 +18,9 @@ SNAKE_SIZE = 20
 SNAKE_SHAPE = "circle"
 SNAKE_COLOR = "#009ef1"
 SNAKE_HEAD_FILE = "assets/snake-head-20x20.gif"
+LOG_FILE = 'game_files/snake.log'
+log_level = logging.DEBUG
+SCORE_FILE = 'game_files/scores.txt'
 high_score = 0
 
 offsets = {
@@ -29,18 +34,20 @@ offsets = {
 def load_high_score():
     global high_score
     try:
-        with open("scores.txt", "r") as file:
+        with open(SCORE_FILE, "r") as file:
             high_score = int(file.read())
+        logging.info(f"High score loaded, current score: {high_score}")
     except FileNotFoundError:
+        logging.info(f"High score file not found, a new one will be created")
         pass
 
 
 def save_high_score():
     try:
-        with open("scores.txt", "w") as file:
+        with open(SCORE_FILE, "w") as file:
             file.write(str(high_score))
     finally:
-        print("score saved")
+        logging.info(f'High score of: {high_score} saved to {SCORE_FILE}')
 
 
 def bind_direction_keys():
@@ -49,10 +56,11 @@ def bind_direction_keys():
     scr_mgr.bind_keypress(lambda: set_snake_direction("left"), "Left")
     scr_mgr.bind_keypress(lambda: set_snake_direction("right"), "Right")
     scr_mgr.bind_keypress(lambda: terminate("user"), "Escape")
+    logging.info("keys bound to actions")
 
 
 def terminate(reason):
-    print(f"terminating due to {reason}")
+    logging.info(f"terminating due to {reason}")
     save_high_score()
     scr_mgr.terminate()
     # screen.bye()
@@ -68,8 +76,9 @@ def set_snake_direction(new_direction):
     direction = new_direction
 
 
+game_logging.setup_logging(LOG_FILE, log_level)
+logging.info(f'Snake game started, loading scores, setting up screen\n')
 load_high_score()
-
 scr_mgr = ScreenManager(ScreenConfig(bg_file=BG_FILE))
 scr_mgr.register_shape(*[FOOD_FILE, SNAKE_HEAD_FILE])
 bind_direction_keys()
@@ -95,6 +104,7 @@ def food_collision():
     # print(f"distance is {d}")
     if distance(snake[-1], food_pos) < 20:
         food_pos = scr_mgr.get_random_pos(FOOD_SIZE)
+        logging.info(f'food will be placed at {food_pos}')
         food.goto(food_pos)
         DELAY = int(DELAY * 0.9)
         score += 1
@@ -102,6 +112,7 @@ def food_collision():
             high_score = score
             save_high_score()
             # save high score now, async
+        logging.debug(f'food collision detected')
         return True
     return False
 
@@ -134,10 +145,10 @@ def move_valid(x, y):
     y_bounds = (- HEIGHT / 2, HEIGHT / 2)
     if x < x_bounds[0] or x > x_bounds[1] \
             or y < y_bounds[0] or y > y_bounds[1]:
-        print(f"move to {x},{y} is outside screen")
+        logging.warn(f"move to {x},{y} is outside screen")
         return False
     if (x, y) in snake:
-        print(f"move to {x},{y} is inside the snake")
+        logging.warn(f"move to {x},{y} is inside the snake")
         return False
     return True
 
